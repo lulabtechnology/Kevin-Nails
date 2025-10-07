@@ -12,7 +12,7 @@ export default function Home() {
         <p>Turnos en tiempo real. Reserva tu número y asegúralo con depósito (mock).</p>
         <div className="flex gap-3 justify-center">
           <Link href="/turnos" className="btn">Tomar turno ahora</Link>
-          <Link href="/dashboard" className="btn">Dashboard</Link>
+          {/* El acceso al dashboard queda oculto; usa / (auth)/login manualmente */}
         </div>
       </section>
     </main>
