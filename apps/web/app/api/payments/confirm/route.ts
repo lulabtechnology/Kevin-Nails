@@ -17,7 +17,6 @@ export async function POST(req: Request) {
     if (!amount || amount <= 0) return json(400, { ok:false, error:'amount inválido' })
 
     if (!supabaseAdmin) {
-      // Modo “degraded”
       return json(200, { ok:true, payment_id, status:'succeeded', note:'admin client not configured' })
     }
 
