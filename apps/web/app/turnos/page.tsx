@@ -72,14 +72,14 @@ export default function TurnosPage(){
       setCreating(true)
       setInfoMsg('Creando pago (mock)…')
 
-      // 0) Subir imagen (si hay) ANTES del pago solo para tener metadata
+      // Subir imagen (opcional) para vista/metadata
       let image_url:string|undefined, image_meta:any
       if(imageFileRef.current){
         setUploading(true)
         const fd = new FormData()
         fd.append('file', imageFileRef.current)
         const up = await fetch('/api/upload', { method:'POST', body: fd })
-        if(!up.ok){ throw new Error('Error subiendo imagen') }
+        if(!up.ok) throw new Error('Error subiendo imagen')
         const u = await up.json()
         image_url = u.url
         image_meta = { bucket: u.bucket, path: u.path, score: form.image_score ?? 0 }
@@ -102,13 +102,14 @@ export default function TurnosPage(){
       })
       if(!confirm.ok) throw new Error(await confirm.text())
 
-      // 3) Crear turno (requiere paid)
+      // 3) Crear turno (requiere paid) + vincular payment_id
       setInfoMsg('Asignando número…')
       const res = await fetch('/api/turns/create',{
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({
           payment_status: 'paid',
+          payment_id, // <<--- clave para enlazar el pago al turno
           customer_name: form.customer_name,
           email: form.email,
           phone: form.phone,
@@ -129,7 +130,6 @@ export default function TurnosPage(){
       })
 
       if(res.status===405){
-        // Fallback solicitado: probar /api/submit (si existiera)
         await fetch('/api/submit',{ method:'POST' }).catch(()=>{})
         throw new Error('Tu navegador intentó GET. Repite: el botón hará POST correctamente.')
       }
@@ -153,7 +153,7 @@ export default function TurnosPage(){
           <TurnForm value={form} onChange={setForm} imageRef={imageFileRef}/>
           <div className="text-xs mt-3 p-3 rounded-xl bg-black/5">
             <b>Políticas:</b> depósito del 15% no reembolsable si no te atiendes hoy.  
-            Si se te pasa el número, pasas al final de la fila de hoy (puedes volver a la sala de espera).
+            Si se te pasa el número, pasas al final de la fila de hoy.
           </div>
         </div>
         <div className="card space-y-4">
