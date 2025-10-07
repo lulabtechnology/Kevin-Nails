@@ -4,10 +4,14 @@ import { todayStr } from '@/lib/utils'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-function isAdmin(req:Request){
+function isAdmin(req: Request){
+  const cookie = req.headers.get('cookie') || ''
+  const m = cookie.match(/(?:^|;\s*)admin_token=([^;]+)/)
+  const tokCookie = m?.[1] ? decodeURIComponent(m[1]) : ''
+  if (tokCookie && tokCookie === process.env.DASHBOARD_ADMIN_TOKEN) return true
   const h = req.headers.get('authorization') || ''
-  const tok = h.replace(/^Bearer\s+/i,'').trim()
-  return tok && tok === process.env.DASHBOARD_ADMIN_TOKEN
+  const tokHeader = h.replace(/^Bearer\s+/i,'').trim()
+  return !!tokHeader && tokHeader === process.env.DASHBOARD_ADMIN_TOKEN
 }
 
 export async function POST(req:Request){
