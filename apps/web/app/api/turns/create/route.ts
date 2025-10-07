@@ -6,30 +6,30 @@ import { nanoid } from 'nanoid'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+function json(status:number, payload:any){
+  return new Response(JSON.stringify(payload), { status, headers:{ 'Content-Type':'application/json' } })
+}
+
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}))
+  try{
+    const body = await req.json().catch(() => ({}))
 
-  // 1) Validación (aceptamos props extra por .passthrough en el schema)
-  const parsed = createTurnSchema.safeParse(body)
-  if (!parsed.success) {
-    // No reclamamos número si falla validación
-    return new Response(`Validación: ${parsed.error.message}`, { status: 400 })
-  }
-  const v = parsed.data
-  const payment_id: string | undefined = v.payment_id
-  const pDate = todayStr()
+    const parsed = createTurnSchema.safeParse(body)
+    if (!parsed.success) {
+      return json(400, { ok:false, error:`Validación: ${parsed.error.message}` })
+    }
+    const v = parsed.data
+    const payment_id: string | undefined = v.payment_id
+    const pDate = todayStr()
 
-  // 2) Reclamar número atómicamente
-  const claim = await supabaseAdmin.rpc('fn_claim_next_turn', { p_date: pDate })
-  if (claim.error) {
-    return new Response(`Claim error: ${claim.error.message}`, { status: 500 })
-  }
-  const claimed: number = claim.data
+    // 1) Reclamar número
+    const claim = await supabaseAdmin.rpc('fn_claim_next_turn', { p_date: pDate })
+    if (claim.error) return json(500, { ok:false, error:`Claim error: ${claim.error.message}` })
+    const claimed: number = claim.data
 
-  // 3) Intentar insertar el turno
-  const public_id = 'T' + nanoid(10)
-  try {
-    const { error: e2 } = await supabaseAdmin.from('turns').insert({
+    // 2) Insertar turno
+    const public_id = 'T' + nanoid(10)
+    const ins = await supabaseAdmin.from('turns').insert({
       id: crypto.randomUUID(),
       public_id,
       queue_date: pDate,
@@ -52,9 +52,13 @@ export async function POST(req: Request) {
       payment_status: v.payment_status ?? 'unpaid',
       status: 'waiting'
     })
-    if (e2) throw e2
 
-    // 4) Enlazar el pago mock si vino payment_id
+    if (ins.error) {
+      await supabaseAdmin.rpc('fn_unclaim_last', { p_date: pDate, p_claimed: claimed }).catch(()=>{})
+      return json(500, { ok:false, error:`Insert error: ${ins.error.message}` })
+    }
+
+    // 3) Enlazar pago mock si vino payment_id
     if (payment_id) {
       await supabaseAdmin
         .from('payments')
@@ -62,17 +66,11 @@ export async function POST(req: Request) {
         .contains('raw', { ext_id: payment_id })
     }
 
-    return Response.json({ ok: true, public_id, queue_number: claimed })
-  } catch (err: any) {
-    // 5) IMPORTANTE: revertir el claim si no se insertó el turno
-    try {
-      await supabaseAdmin.rpc('fn_unclaim_last', { p_date: pDate, p_claimed: claimed })
-    } catch { /* silencioso */ }
-
-    const msg = typeof err?.message === 'string' ? err.message : 'Error desconocido insertando turno'
-    return new Response(`Insert error: ${msg}`, { status: 500 })
+    return json(200, { ok:true, public_id, queue_number: claimed })
+  }catch(e:any){
+    return json(500, { ok:false, error: e?.message || 'Error desconocido en create turn' })
   }
 }
 
-export async function GET() { return new Response('Usa POST') }
-export async function OPTIONS() { return new Response(null, { headers: { Allow: 'POST,GET,OPTIONS' } }) }
+export async function GET(){ return new Response('Usa POST') }
+export async function OPTIONS(){ return new Response(null,{ headers:{ Allow:'POST,GET,OPTIONS' } }) }
