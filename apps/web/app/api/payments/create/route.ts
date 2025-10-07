@@ -5,9 +5,8 @@ import { randomUUID } from 'crypto'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-function json(status:number, payload:any){
-  return new Response(JSON.stringify(payload), { status, headers:{ 'Content-Type':'application/json' } })
-}
+const json = (status:number, payload:any) =>
+  new Response(JSON.stringify(payload), { status, headers:{ 'Content-Type':'application/json' } })
 
 export async function POST(req: Request) {
   try{
@@ -17,6 +16,12 @@ export async function POST(req: Request) {
     if (!amount || amount <= 0) return json(400, { ok:false, error:'Monto inválido' })
 
     const ext_id = 'PMOCK_' + nanoid(10)
+
+    if (!supabaseAdmin) {
+      // Modo “degraded”: no insertamos, pero devolvemos OK para no bloquear el flujo.
+      return json(200, { ok:true, payment_id: ext_id, provider, amount, status:'requires_confirmation', note:'admin client not configured' })
+    }
+
     const { error } = await supabaseAdmin.from('payments').insert({
       id: randomUUID(),
       turn_public_id: null,
@@ -33,5 +38,5 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() { return new Response('Usa POST') }
+export async function GET(){ return new Response('Usa POST') }
 export async function OPTIONS(){ return new Response(null,{ headers:{ Allow:'POST,GET,OPTIONS' } }) }
