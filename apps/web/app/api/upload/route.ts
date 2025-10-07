@@ -6,6 +6,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
+  if (!supabaseAdmin) return new Response('SUPABASE_URL / SERVICE_ROLE faltan', { status: 500 })
   const form = await req.formData()
   const file = form.get('file') as File | null
   if(!file) return new Response('file requerido', { status: 400 })
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
   const key = `refs/${nanoid(10)}-${randomUUID()}.${ext}`
 
   const array = await file.arrayBuffer()
-  const { data, error } = await supabaseAdmin.storage
+  const { error } = await supabaseAdmin.storage
     .from('nail-refs')
     .upload(key, Buffer.from(array), {
       contentType: file.type || 'application/octet-stream',
