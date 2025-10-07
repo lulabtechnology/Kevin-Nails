@@ -17,17 +17,19 @@ export async function POST(req: Request) {
     const ext_id = 'PMOCK_' + nanoid(10)
 
     if (!supabaseAdmin) {
+      // Modo “degraded” para no bloquear el flujo si faltan envs en preview
       return json(200, { ok:true, payment_id: ext_id, provider, amount, status:'requires_confirmation', note:'admin client not configured' })
     }
 
     const { error } = await supabaseAdmin.from('payments').insert({
-      /* id lo genera Postgres */,
+      // id: lo genera Postgres (DEFAULT gen_random_uuid())
       turn_public_id: null,
       provider,
       amount,
       status: 'requires_confirmation',
       raw: { ext_id, created_at: new Date().toISOString() }
     })
+
     if (error) return json(500, { ok:false, error: error.message })
 
     return json(200, { ok: true, payment_id: ext_id, provider, amount, status: 'requires_confirmation' })
