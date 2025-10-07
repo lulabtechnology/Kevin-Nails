@@ -2,7 +2,6 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { createTurnSchema } from '@/lib/validation'
 import { todayStr } from '@/lib/utils'
 import { nanoid } from 'nanoid'
-import { randomUUID } from 'crypto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,10 +26,9 @@ export async function POST(req: Request) {
     if (claim.error) return json(500, { ok:false, error:`Claim error: ${claim.error.message}` })
     const claimed: number = claim.data
 
-    // 2) Insertar turno
+    // 2) Insertar turno (sin id; lo genera Postgres)
     const public_id = 'T' + nanoid(10)
     const ins = await supabaseAdmin.from('turns').insert({
-      id: randomUUID(),
       public_id,
       queue_date: pDate,
       queue_number: claimed,
