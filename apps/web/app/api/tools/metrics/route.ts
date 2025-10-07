@@ -4,49 +4,52 @@ import { todayStr } from '@/lib/utils'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-function isAdmin(req:Request){
+function isAdmin(req: Request){
+  const cookie = req.headers.get('cookie') || ''
+  const m = cookie.match(/(?:^|;\s*)admin_token=([^;]+)/)
+  const tokCookie = m?.[1] ? decodeURIComponent(m[1]) : ''
+  if (tokCookie && tokCookie === process.env.DASHBOARD_ADMIN_TOKEN) return true
   const h = req.headers.get('authorization') || ''
-  const tok = h.replace(/^Bearer\s+/i,'').trim()
-  return tok && tok === process.env.DASHBOARD_ADMIN_TOKEN
+  const tokHeader = h.replace(/^Bearer\s+/i,'').trim()
+  return !!tokHeader && tokHeader === process.env.DASHBOARD_ADMIN_TOKEN
 }
 
 export async function GET(req:Request){
   if(!isAdmin(req)) return new Response('Unauthorized', { status: 401 })
   const date = todayStr()
 
-  const [{ data: countAll }, { data: sumDeposits }, { data: byStatus }] = await Promise.all([
-    supabaseAdmin.from('turns').select('id', { count: 'exact', head: true }).eq('queue_date', date),
-    supabaseAdmin.from('turns').select('deposit').eq('queue_date', date).eq('payment_status','paid'),
-    supabaseAdmin.rpc('sql', { sql: `
-      select status, count(*) as c
-      from turns
-      where queue_date = '${date}'
-      group by status
-    ` } as any).then(r=>{
-      // fallback si tu proyecto no tiene "sql" RPC habilitado
-      if ('error' in r && r.error) return { data: null }
-      return r
-    })
-  ])
+  // Total de turnos hoy (count exact, head:true)
+  const { count: totalTurns, error: eCount } = await supabaseAdmin
+    .from('turns')
+    .select('*', { count: 'exact', head: true })
+    .eq('queue_date', date)
+  if (eCount) return new Response(eCount.message, { status: 500 })
 
-  // Fallback si no existe RPC "sql": contamos en app
-  let statusCounts: Record<string, number> = {}
-  if (!byStatus) {
-    const { data: rows } = await supabaseAdmin.from('turns')
-      .select('status')
-      .eq('queue_date', date)
-    rows?.forEach(r => statusCounts[r.status] = (statusCounts[r.status] ?? 0) + 1)
-  } else {
-    byStatus.forEach((r:any) => statusCounts[r.status] = Number(r.c))
-  }
+  // Suma de depósitos pagados hoy
+  const { data: paidRows, error: eDep } = await supabaseAdmin
+    .from('turns')
+    .select('deposit')
+    .eq('queue_date', date)
+    .eq('payment_status','paid')
+  if (eDep) return new Response(eDep.message, { status: 500 })
+  const deposits_sum = Math.round((paidRows ?? []).reduce((a,r)=> a + Number(r.deposit||0), 0) * 100) / 100
 
-  const depositTotal = (sumDeposits || []).reduce((a:any,b:any)=> a + Number(b.deposit||0), 0)
+  // Conteo por estado
+  const { data: statusRows, error: eStatus } = await supabaseAdmin
+    .from('turns')
+    .select('status')
+    .eq('queue_date', date)
+  if (eStatus) return new Response(eStatus.message, { status: 500 })
+  const by_status: Record<string, number> = {}
+  ;(statusRows ?? []).forEach(r => {
+    by_status[r.status] = (by_status[r.status] ?? 0) + 1
+  })
 
   return Response.json({
-    ok:true,
-    total_turns: countAll?.length === 0 ? 0 : (countAll as any),
-    deposits_sum: Math.round(depositTotal * 100)/100,
-    by_status: statusCounts
+    ok: true,
+    total_turns: totalTurns ?? 0,
+    deposits_sum,
+    by_status
   })
 }
 
