@@ -9,7 +9,20 @@
     "noEmit": true,
     "jsx": "preserve",
     "incremental": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+
     "types": ["vitest/globals", "node"]
   },
-  "include": ["./"]
+  "include": [
+    "app/**/*",
+    "components/**/*",
+    "lib/**/*",
+    "tests/**/*",
+    "next-env.d.ts"
+  ],
+  "exclude": ["node_modules"]
 }
