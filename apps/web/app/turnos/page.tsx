@@ -99,4 +99,101 @@ export default function TurnosPage(){
       setInfoMsg('Creando pago (mock)…')
 
       // Subida de imagen (opcional)
-      let image_url:string|u_
+      let image_url:string|undefined, image_meta:any
+      if(imageFileRef.current){
+        setUploading(true)
+        const fd = new FormData()
+        fd.append('file', imageFileRef.current)
+        const up = await fetch('/api/upload', { method:'POST', body: fd })
+        if(!up.ok) throw new Error(await up.text())
+        const u = await up.json()
+        image_url = u.url
+        image_meta = { bucket: u.bucket, path: u.path, score: form.image_score ?? 0 }
+        setUploading(false)
+      }
+
+      // 1) pago mock → create
+      const r1 = await fetch('/api/payments/create', {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ provider:'mock', amount: estimate.deposit })
+      })
+      const j1 = await r1.json().catch(async()=>({ ok:false, error: await r1.text() }))
+      if(!r1.ok || !j1.ok) throw new Error(j1.error || 'Fallo creando pago')
+      const payment_id: string = j1.payment_id
+
+      // 2) pago mock → confirm
+      setInfoMsg('Confirmando pago (mock)…')
+      const r2 = await fetch('/api/payments/confirm', {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ provider:'mock', payment_id, amount: estimate.deposit })
+      })
+      const j2 = await r2.json().catch(async()=>({ ok:false, error: await r2.text() }))
+      if(!r2.ok || !j2.ok) throw new Error(j2.error || 'Fallo confirmando pago')
+
+      // 3) crear turno
+      setInfoMsg('Asignando número…')
+      const r3 = await fetch('/api/turns/create',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          payment_status: 'paid',
+          payment_id,
+          customer_name: form.customer_name,
+          email: form.email,
+          phone: form.phone,
+          service: form.service,
+          hand_or_feet: form.hand_or_feet,
+          length: form.length,
+          shape: form.shape,
+          color: form.color,
+          nail_art_level: form.nail_art_level,
+          nail_art_count: form.nail_art_count,
+          extras: form.extras,
+          image_url,
+          image_meta,
+          price_estimated: estimate.total,
+          deposit: estimate.deposit,
+          image_score: estimate.image_score
+        })
+      })
+      const j3 = await r3.json().catch(async()=>({ ok:false, error: await r3.text() }))
+      if(!r3.ok || !j3.ok) throw new Error(j3.error || 'Fallo creando turno')
+      // ok
+      router.push(`/review/${j3.public_id}`)
+    }catch(e:any){
+      setErrMsg(e?.message || 'Error desconocido')
+    }finally{
+      setCreating(false); setInfoMsg(undefined)
+    }
+  }
+
+  return (
+    <main className="px-4 py-8 max-w-5xl mx-auto space-y-8">
+      <h1 className="text-2xl font-semibold">Turnos – Hoy</h1>
+      <Monitor queue={queue}/>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="card">
+          <TurnForm value={form} onChange={setForm} imageRef={imageFileRef}/>
+          <div className="text-xs mt-3 p-3 rounded-xl bg-black/5">
+            <b>Políticas:</b> depósito del 15% no reembolsable si no te atiendes hoy.  
+            Si se te pasa el número, pasas al final de la fila de hoy.
+          </div>
+        </div>
+        <div className="card space-y-4">
+          <h3 className="font-semibold">Estimado</h3>
+          <EstimateChart estimate={estimate}/>
+          <div className="space-y-1 text-sm">
+            <div>Horas aprox.: <b>{estimate.hours} h</b></div>
+            <div>Total estimado: <b>{toMoney(estimate.total)}</b></div>
+            <div>Depósito (15%): <b>{toMoney(estimate.deposit)}</b> (mock)</div>
+          </div>
+          {errMsg && <div className="text-sm text-red-600">{errMsg}</div>}
+          {infoMsg && <div className="text-sm text-gray-600">{infoMsg}</div>}
+          <button className="btn w-full mt-3 disabled:opacity-60" disabled={creating||uploading} onClick={handleSubmit}>
+            {creating ? 'Procesando…' : 'Pagar (mock) y obtener mi número'}
+          </button>
+        </div>
+      </div>
+    </main>
+  )
+}
