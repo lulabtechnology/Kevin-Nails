@@ -39,11 +39,10 @@ export function TurnForm({
     // preview
     const url = URL.createObjectURL(f)
     setPreview(url)
-    // compute score
+    // calcula score con el File (no Uint8Array)
     try {
-      const buf = await f.arrayBuffer()
-      const score = await analyzeImageSobel(new Uint8Array(buf))
-      onChange({ ...value, image_score: Math.max(0, Math.min(2, score|0)) })
+      const score = await analyzeImageSobel(f)
+      onChange({ ...value, image_score: Math.max(0, Math.min(2, (score as number)|0)) })
     } catch {
       onChange({ ...value, image_score: 0 })
     }
@@ -54,7 +53,7 @@ export function TurnForm({
   }
 
   return (
-    <div className="space-y-3" /* <-- NO <form> */>
+    <div className="space-y-3">
       <input className="input" placeholder="Nombre"
         value={value.customer_name} onChange={e=>set('customer_name', e.target.value)} />
       <div className="grid grid-cols-2 gap-2">
@@ -117,7 +116,6 @@ export function TurnForm({
       </div>
       {preview && (
         <div className="rounded-xl overflow-hidden border">
-          {/* preview de la imagen */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="preview" className="w-full h-48 object-cover" />
         </div>
