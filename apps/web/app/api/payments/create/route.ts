@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { nanoid } from 'nanoid'
+import { randomUUID } from 'crypto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
 
     const ext_id = 'PMOCK_' + nanoid(10)
     const { error } = await supabaseAdmin.from('payments').insert({
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       turn_public_id: null,
       provider,
       amount,
