@@ -54,11 +54,14 @@ export async function POST(req: Request) {
     })
 
     if (ins.error) {
-      await supabaseAdmin.rpc('fn_unclaim_last', { p_date: pDate, p_claimed: claimed }).catch(()=>{})
+      // 3) Rollback del claim SIN usar .catch()
+      try {
+        await supabaseAdmin.rpc('fn_unclaim_last', { p_date: pDate, p_claimed: claimed })
+      } catch (_) { /* ignorar */ }
       return json(500, { ok:false, error:`Insert error: ${ins.error.message}` })
     }
 
-    // 3) Enlazar pago mock si vino payment_id
+    // 4) Enlazar pago mock si vino payment_id
     if (payment_id) {
       await supabaseAdmin
         .from('payments')
