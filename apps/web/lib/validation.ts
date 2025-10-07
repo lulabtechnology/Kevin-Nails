@@ -2,7 +2,6 @@ import { z } from 'zod'
 
 export const createTurnSchema = z.object({
   payment_status: z.enum(['paid','unpaid']).default('unpaid'),
-  // Permitimos enviar payment_id desde el cliente (mock) para enlazar pago->turno
   payment_id: z.string().optional(),
 
   customer_name: z.string().min(1),
@@ -26,10 +25,7 @@ export const createTurnSchema = z.object({
   price_estimated: z.number().min(0),
   deposit: z.number().min(0),
 
-  // Puede venir del form; no es columna. Lo permitimos para no romper.
-  image_score: z.number().min(0).max(2).optional(),
-})
-// MUY IMPORTANTE: permitir claves adicionales para no romper con props extra
-.passthrough()
+  image_score: z.number().min(0).max(2).optional()
+}).passthrough()
 
 export type CreateTurnInput = z.infer<typeof createTurnSchema>
