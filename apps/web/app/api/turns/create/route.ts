@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { createTurnSchema } from '@/lib/validation'
 import { todayStr } from '@/lib/utils'
 import { nanoid } from 'nanoid'
+import { randomUUID } from 'crypto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
     // 2) Insertar turno
     const public_id = 'T' + nanoid(10)
     const ins = await supabaseAdmin.from('turns').insert({
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       public_id,
       queue_date: pDate,
       queue_number: claimed,
@@ -54,14 +55,11 @@ export async function POST(req: Request) {
     })
 
     if (ins.error) {
-      // 3) Rollback del claim SIN usar .catch()
-      try {
-        await supabaseAdmin.rpc('fn_unclaim_last', { p_date: pDate, p_claimed: claimed })
-      } catch (_) { /* ignorar */ }
+      try { await supabaseAdmin.rpc('fn_unclaim_last', { p_date: pDate, p_claimed: claimed }) } catch {}
       return json(500, { ok:false, error:`Insert error: ${ins.error.message}` })
     }
 
-    // 4) Enlazar pago mock si vino payment_id
+    // 3) Enlazar pago mock si vino payment_id
     if (payment_id) {
       await supabaseAdmin
         .from('payments')
