@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req:Request){
   const body = await req.json().catch(()=> ({}))
+  const payment_id: string | undefined = body?.payment_id
   const parsed = createTurnSchema.safeParse(body)
   if(!parsed.success) return new Response(parsed.error.message, { status: 400 })
   const v = parsed.data
@@ -42,6 +43,14 @@ export async function POST(req:Request){
     status: 'waiting'
   })
   if(e2) return new Response(e2.message, { status: 500 })
+
+  // 3) si tenemos payment_id de mock, enlazarlo a este turno
+  if (payment_id) {
+    await supabaseAdmin
+      .from('payments')
+      .update({ turn_public_id: public_id })
+      .contains('raw', { ext_id: payment_id })
+  }
 
   return Response.json({ ok:true, public_id, queue_number: claimed })
 }
