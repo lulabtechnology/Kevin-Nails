@@ -7,21 +7,20 @@ import { randomUUID } from 'crypto'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-function json(status:number, payload:any){
-  return new Response(JSON.stringify(payload), { status, headers:{ 'Content-Type':'application/json' } })
-}
+const json = (status:number, payload:any) =>
+  new Response(JSON.stringify(payload), { status, headers:{ 'Content-Type':'application/json' } })
 
 export async function POST(req: Request) {
   try{
     const body = await req.json().catch(() => ({}))
 
     const parsed = createTurnSchema.safeParse(body)
-    if (!parsed.success) {
-      return json(400, { ok:false, error:`Validación: ${parsed.error.message}` })
-    }
+    if (!parsed.success) return json(400, { ok:false, error:`Validación: ${parsed.error.message}` })
     const v = parsed.data
     const payment_id: string | undefined = v.payment_id
     const pDate = todayStr()
+
+    if (!supabaseAdmin) return json(500, { ok:false, error:'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY faltan' })
 
     // 1) Reclamar número
     const claim = await supabaseAdmin.rpc('fn_claim_next_turn', { p_date: pDate })
