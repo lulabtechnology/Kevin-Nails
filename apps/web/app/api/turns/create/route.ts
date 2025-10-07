@@ -8,10 +8,15 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req:Request){
   const body = await req.json().catch(()=> ({}))
-  const payment_id: string | undefined = body?.payment_id
+
+  // Validar permitiendo props extra (schema .passthrough)
   const parsed = createTurnSchema.safeParse(body)
-  if(!parsed.success) return new Response(parsed.error.message, { status: 400 })
+  if(!parsed.success){
+    // No reclamamos número si falla validación
+    return new Response(parsed.error.message, { status: 400 })
+  }
   const v = parsed.data
+  const payment_id: string | undefined = v.payment_id
 
   // 1) reclamar número atómicamente
   const { data: claimed, error: e1 } = await supabaseAdmin.rpc('fn_claim_next_turn', { p_date: todayStr() })
@@ -39,12 +44,16 @@ export async function POST(req:Request){
     image_meta: v.image_meta,
     price_estimated: v.price_estimated,
     deposit: v.deposit,
-    payment_status: 'paid',
+    payment_status: v.payment_status ?? 'unpaid',
     status: 'waiting'
   })
-  if(e2) return new Response(e2.message, { status: 500 })
+  if(e2){
+    // IMPORTANTE: si algo falla aquí, ya consumimos next_number.
+    // Regresamos error claro para el cliente.
+    return new Response(e2.message, { status: 500 })
+  }
 
-  // 3) si tenemos payment_id de mock, enlazarlo a este turno
+  // 3) si tenemos payment_id (mock), enlazar pago a este turno
   if (payment_id) {
     await supabaseAdmin
       .from('payments')
