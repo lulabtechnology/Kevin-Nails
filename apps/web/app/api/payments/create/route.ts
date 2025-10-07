@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { nanoid } from 'nanoid'
-import { randomUUID } from 'crypto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,12 +17,11 @@ export async function POST(req: Request) {
     const ext_id = 'PMOCK_' + nanoid(10)
 
     if (!supabaseAdmin) {
-      // Modo “degraded”: no insertamos, pero devolvemos OK para no bloquear el flujo.
       return json(200, { ok:true, payment_id: ext_id, provider, amount, status:'requires_confirmation', note:'admin client not configured' })
     }
 
     const { error } = await supabaseAdmin.from('payments').insert({
-      id: randomUUID(),
+      /* id lo genera Postgres */,
       turn_public_id: null,
       provider,
       amount,
