@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { analyzeImageSobel } from '@/lib/imageAnalysis'
 import { TurnFormData } from '@/lib/types'
 
@@ -26,11 +26,14 @@ export function TurnForm({ value, onChange, imageRef }:{
   imageRef: React.MutableRefObject<File|null>
 }){
   const fileInput = useRef<HTMLInputElement|null>(null)
+  const [preview, setPreview] = useState<string|undefined>()
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>){
     const f = e.target.files?.[0]
     if(!f) return
     imageRef.current = f
+    const url = URL.createObjectURL(f)
+    setPreview(url)
     const score = await analyzeImageSobel(f) // 0..2
     onChange({ ...value, image_score: score })
   }
@@ -94,9 +97,12 @@ export function TurnForm({ value, onChange, imageRef }:{
             </label>
           ))}
         </div>
-        <div className="col-span-2">
+        <div className="col-span-2 space-y-2">
           <input ref={fileInput} type="file" accept="image/*" onChange={onFile}/>
-          <div className="text-xs opacity-70 mt-1">Score imagen (0..2): <b>{value.image_score ?? 0}</b></div>
+          {preview && (
+            <img src={preview} alt="Vista previa" className="w-full rounded-xl border" />
+          )}
+          <div className="text-xs opacity-70">Score imagen (0..2): <b>{value.image_score ?? 0}</b></div>
         </div>
       </div>
     </div>
