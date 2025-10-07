@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{ color-scheme: light; }
+
+body{
+  @apply bg-white text-black;
+  background-image: url('/bg-marble.jpg');
+  background-size: cover;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.btn{
+  @apply inline-flex items-center justify-center rounded-2xl bg-black px-4 py-2 text-white hover:opacity-90 active:scale-95 transition;
+}
+
+.card{
+  @apply bg-white/80 backdrop-blur-sm shadow-lg rounded-2xl p-6;
+}
